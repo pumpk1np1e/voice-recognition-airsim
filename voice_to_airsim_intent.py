@@ -21,7 +21,7 @@ INTENT_DIR = "intent_model"   # папка после train_intent.py
 DEFAULT_THRESH = 0.35         # если threshold.txt не найден
 
 # параметры движения
-VX, VY, VZ = 2.0, 2.0, 1.0
+VX, VY, VZ = 5.0, 5.0, 2.0
 DURATION = 2.0
 # =======================
 
