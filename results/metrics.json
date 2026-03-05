@@ -1,0 +1,87 @@
+{
+  "accuracy": 0.8571428571428571,
+  "threshold": 0.2327,
+  "embedder": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "classes": [
+    "BACK",
+    "DOWN",
+    "FORWARD",
+    "HOVER",
+    "LAND",
+    "LEFT",
+    "RIGHT",
+    "TAKEOFF",
+    "UP"
+  ],
+  "test_size": 0.2,
+  "test_samples": 21,
+  "report": {
+    "BACK": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "DOWN": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "FORWARD": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "HOVER": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "LAND": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "LEFT": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "RIGHT": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "TAKEOFF": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "UP": {
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.8,
+      "support": 3.0
+    },
+    "accuracy": 0.8571428571428571,
+    "macro avg": {
+      "precision": 0.9074074074074073,
+      "recall": 0.8518518518518519,
+      "f1-score": 0.8444444444444444,
+      "support": 21.0
+    },
+    "weighted avg": {
+      "precision": 0.9206349206349206,
+      "recall": 0.8571428571428571,
+      "f1-score": 0.8571428571428571,
+      "support": 21.0
+    }
+  }
+}

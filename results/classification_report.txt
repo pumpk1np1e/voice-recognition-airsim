@@ -1,0 +1,21 @@
+              precision    recall  f1-score   support
+
+        BACK       1.00      1.00      1.00         3
+        DOWN       1.00      1.00      1.00         2
+     FORWARD       1.00      1.00      1.00         3
+       HOVER       1.00      1.00      1.00         2
+        LAND       1.00      0.50      0.67         2
+        LEFT       0.67      1.00      0.80         2
+       RIGHT       1.00      0.50      0.67         2
+     TAKEOFF       0.50      1.00      0.67         2
+          UP       1.00      0.67      0.80         3
+
+    accuracy                           0.86        21
+   macro avg       0.91      0.85      0.84        21
+weighted avg       0.92      0.86      0.86        21
+
+
+Точность (accuracy): 0.8571
+Порог (из файла): 0.2327
+Эмбеддер: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+test_size: 0.20 | тестовых примеров: 21
