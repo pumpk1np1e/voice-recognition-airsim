@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import joblib
 import numpy as np
@@ -9,12 +9,7 @@ import torch.nn as nn
 
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    precision_recall_fscore_support,
-    accuracy_score,
-)
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score
 
 from sentence_transformers import SentenceTransformer
 
@@ -23,7 +18,8 @@ MODEL_DIR = "intent_model"
 OUT_DIR = "results"
 SEED = 42
 
-# Если в train_intent ты меняла архитектуру "головы", поставь те же параметры здесь
+# Если меняли архитектуру "головы" в train_intent.py,
+# укажите такие же параметры здесь.
 HIDDEN = 256
 DROPOUT = 0.2
 
@@ -65,6 +61,81 @@ def save_json(obj, path):
         json.dump(obj, f, ensure_ascii=False, indent=2)
 
 
+def build_f05_report(y_true, y_pred, labels: list[str]):
+    label_ids = np.arange(len(labels))
+    prec, rec, f05, sup = precision_recall_fscore_support(
+        y_true,
+        y_pred,
+        labels=label_ids,
+        beta=0.5,
+        zero_division=0,
+    )
+    macro = precision_recall_fscore_support(
+        y_true, y_pred, beta=0.5, average="macro", zero_division=0
+    )
+    weighted = precision_recall_fscore_support(
+        y_true, y_pred, beta=0.5, average="weighted", zero_division=0
+    )
+
+    rows = []
+    report = {}
+    for i, label in enumerate(labels):
+        item = {
+            "precision": float(prec[i]),
+            "recall": float(rec[i]),
+            "f0.5-score": float(f05[i]),
+            "support": int(sup[i]),
+        }
+        report[label] = item
+        rows.append({"label": label, **item})
+
+    total_support = int(np.sum(sup))
+    report["macro avg"] = {
+        "precision": float(macro[0]),
+        "recall": float(macro[1]),
+        "f0.5-score": float(macro[2]),
+        "support": total_support,
+    }
+    report["weighted avg"] = {
+        "precision": float(weighted[0]),
+        "recall": float(weighted[1]),
+        "f0.5-score": float(weighted[2]),
+        "support": total_support,
+    }
+
+    rows.append({"label": "macro avg", **report["macro avg"]})
+    rows.append({"label": "weighted avg", **report["weighted avg"]})
+
+    report_df = pd.DataFrame(rows, columns=["label", "precision", "recall", "f0.5-score", "support"])
+    return report, report_df, prec, rec, f05, sup
+
+
+def compute_recognized_accuracy(
+    y_true_idx: np.ndarray,
+    y_pred_idx: np.ndarray,
+    conf: np.ndarray,
+    labels: list[str],
+    threshold: float | None,
+):
+    label_arr = np.asarray(labels)
+    mask = np.ones(len(y_pred_idx), dtype=bool)
+
+    unknown_idx = np.where(label_arr == "UNKNOWN")[0]
+    if len(unknown_idx) > 0:
+        mask &= y_pred_idx != int(unknown_idx[0])
+    if threshold is not None:
+        mask &= conf >= threshold
+
+    recognized = int(mask.sum())
+    total = int(len(y_pred_idx))
+    coverage = float(recognized / total) if total else 0.0
+    if recognized == 0:
+        return None, coverage, recognized
+
+    acc_recognized = float(np.mean(y_pred_idx[mask] == y_true_idx[mask]))
+    return acc_recognized, coverage, recognized
+
+
 def plot_confusion_matrix(cm: np.ndarray, labels: list[str], title: str, out_png: str):
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
@@ -83,7 +154,7 @@ def plot_confusion_matrix(cm: np.ndarray, labels: list[str], title: str, out_png
 
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
-    # подписи чисел
+    # Подписи значений в ячейках
     thresh = cm.max() / 2.0 if cm.max() > 0 else 0.5
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
@@ -118,14 +189,14 @@ def plot_bar(values: np.ndarray, labels: list[str], title: str, ylabel: str, out
     plt.close(fig)
 
 
-def plot_prf(prec, rec, f1, labels: list[str], out_png: str):
+def plot_prf(prec, rec, f05, labels: list[str], out_png: str):
     fig = plt.figure(figsize=(12, 6))
     ax = fig.add_subplot(111)
     x = np.arange(len(labels))
     w = 0.25
     ax.bar(x - w, prec, width=w, label="Точность (Precision)")
     ax.bar(x, rec, width=w, label="Полнота (Recall)")
-    ax.bar(x + w, f1, width=w, label="F1-мера (F1)")
+    ax.bar(x + w, f05, width=w, label="F0.5-мера (F0.5)")
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=45, ha="right")
@@ -163,7 +234,7 @@ def plot_confidence_hist(conf_correct, conf_wrong, out_png: str, thr):
 def main():
     ensure_out_dir()
 
-    # Настройка шрифта для поддержки русского
+    # Настройка шрифта для русского
     plt.rcParams["font.family"] = "DejaVu Sans"
     plt.rcParams["axes.unicode_minus"] = False
 
@@ -210,14 +281,22 @@ def main():
 
     # --- Metrics ---
     acc = float(accuracy_score(y_test, y_pred))
-    rep = classification_report(y_test, y_pred, target_names=labels, output_dict=True, zero_division=0)
-    rep_text = classification_report(y_test, y_pred, target_names=labels, zero_division=0)
+    acc_rec, coverage, recognized_n = compute_recognized_accuracy(
+        y_test, y_pred, conf, labels, thr
+    )
+    rep, rep_df, prec, rec, f05, sup = build_f05_report(y_test, y_pred, labels)
+    rep_text = rep_df.to_string(index=False, float_format=lambda v: f"{v:.4f}")
 
     # Save report
     with open(os.path.join(OUT_DIR, "classification_report.txt"), "w", encoding="utf-8") as f:
         f.write(rep_text)
         f.write("\n")
         f.write(f"\nТочность (accuracy): {acc:.4f}\n")
+        if acc_rec is None:
+            f.write("Accuracy on recognized: n/a (no recognized samples)\n")
+        else:
+            f.write(f"Accuracy on recognized: {acc_rec:.4f}\n")
+        f.write(f"Coverage (recognized/total): {coverage:.4f} ({recognized_n}/{len(y_test)})\n")
         if thr is not None:
             f.write(f"Порог (из файла): {thr:.4f}\n")
         f.write(f"Эмбеддер: {emb_name}\n")
@@ -226,6 +305,9 @@ def main():
     save_json(
         {
             "accuracy": acc,
+            "accuracy_on_recognized": acc_rec,
+            "coverage": coverage,
+            "recognized_samples": recognized_n,
             "threshold": thr,
             "embedder": emb_name,
             "classes": labels,
@@ -236,10 +318,9 @@ def main():
         os.path.join(OUT_DIR, "metrics.json"),
     )
 
-    # Per-class PRF arrays
-    prec, rec, f1, sup = precision_recall_fscore_support(y_test, y_pred, zero_division=0)
+    # Per-class PRF arrays (F0.5)
     metrics_df = pd.DataFrame(
-        {"label": labels, "precision": prec, "recall": rec, "f1": f1, "support": sup}
+        {"label": labels, "precision": prec, "recall": rec, "f0_5": f05, "support": sup}
     )
     metrics_df.to_csv(os.path.join(OUT_DIR, "per_class_metrics.csv"), index=False)
 
@@ -254,18 +335,18 @@ def main():
 
     # --- Bars ---
     plot_bar(
-        f1,
+        f05,
         labels,
-        title="F1-мера по классам",
-        ylabel="F1-мера",
-        out_png=os.path.join(OUT_DIR, "f1_per_class.png"),
+        title="F0.5-мера по классам",
+        ylabel="F0.5-мера",
+        out_png=os.path.join(OUT_DIR, "f0_5_per_class.png"),
     )
     plot_prf(
-        prec, rec, f1, labels, out_png=os.path.join(OUT_DIR, "prf_per_class.png")
+        prec, rec, f05, labels, out_png=os.path.join(OUT_DIR, "prf_per_class.png")
     )
 
     # --- Confidence histogram ---
-    correct_mask = (y_pred == y_test)
+    correct_mask = y_pred == y_test
     conf_correct = conf[correct_mask]
     conf_wrong = conf[~correct_mask]
     plot_confidence_hist(
@@ -278,6 +359,10 @@ def main():
     # --- Summary print ---
     print(f"Графики и метрики сохранены в: {OUT_DIR}/")
     print(f"Точность (accuracy)={acc:.3f} | тестовых примеров={len(y_test)} | классов={n_classes}")
+    if acc_rec is None:
+        print("Accuracy on recognized: n/a")
+    else:
+        print(f"Accuracy on recognized={acc_rec:.3f} | coverage={coverage:.3f}")
     if thr is not None:
         print(f"Порог (из файла)={thr:.2f}")
     print("Созданные файлы:")
@@ -286,7 +371,7 @@ def main():
         "metrics.json",
         "per_class_metrics.csv",
         "confusion_matrix.png",
-        "f1_per_class.png",
+        "f0_5_per_class.png",
         "prf_per_class.png",
         "confidence_hist.png",
     ]:
